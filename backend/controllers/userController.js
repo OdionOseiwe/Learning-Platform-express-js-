@@ -1,5 +1,5 @@
-import { User } from "../Models/userModel.js";
-import {Lesson} from "../Models/lessonModel.js";
+import  User  from "../Models/userModel.js";
+import Lesson from "../Models/lessonModel.js";
 import { generateTokenAndSetCookie } from "../utils/generateToken.js";
 import { sendVerificationEmail } from "../mailtrap/mail.js";
 import bcrypt from "bcryptjs";

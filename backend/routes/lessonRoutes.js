@@ -1,36 +1,14 @@
-const express = require('express');
-const router = express.Router();
-const { 
-  getCourses, 
-  getCourseById, 
-  createCourse, 
-  enrollCourse 
-} = require('../controllers/lessonController');
-const { 
-  createLesson 
-} = require('../controllers/lessonController');
-const { 
-  createQuiz 
-} = require('../controllers/quizController');
-const { 
-  protect, 
-  instructor 
-} = require('../middleware/authMiddleware');
+import express from "express";
+const LessonRouter = express.Router();
+import { getLessons, getLessonsOfLoggedInIntructor,getLessonById, createLesson,enrollLesson, updateLesson, completeLesson } from "../controllers/lessonController.js";
+import { verifyToken, instructor } from "../middleware/authMiddleware.js";
 
-router.route('/')
-  .get(getCourses)
-  .post(protect, instructor, createCourse);
+LessonRouter.get("/", getLessons);
+LessonRouter.get("/instructor", verifyToken,instructor, getLessonsOfLoggedInIntructor);
+LessonRouter.get("/:id",verifyToken, getLessonById);
+LessonRouter.post("/", verifyToken, instructor, createLesson);
+LessonRouter.put("/:id", verifyToken, instructor, updateLesson);
+LessonRouter.put("/:id/enroll", verifyToken, enrollLesson);
+LessonRouter.put("/:id/complete", verifyToken, completeLesson);
 
-router.route('/:id')
-  .get(getCourseById);
-
-router.route('/:id/enroll')
-  .post(protect, enrollCourse);
-
-router.route('/:courseId/lessons')
-  .post(protect, instructor, createLesson);
-
-router.route('/:courseId/quizzes')
-  .post(protect, instructor, createQuiz);
-
-module.exports = router;
+export default LessonRouter;

@@ -1,9 +1,5 @@
-import Lesson from '../models/lessonModel.js';
 import User from '../models/userModel.js';
-import { Lesson } from '../Models/lessonModel';
-const { body, validationResult } = require('express-validator');
-
-
+import  Lesson from '../models/lessonModel.js';
 //get lessons with pagination and filter
 export const getLessons = async (req, res) => {
   try {
@@ -14,9 +10,9 @@ export const getLessons = async (req, res) => {
     // Build query object
     const query = { isPublished: true };
     if (filter) {
-      query.category = filter;
+      query.category =  { $regex: filter, $options: "i" };
     }
-
+    
     // Get total count for pagination
     const total = await Lesson.countDocuments(query);
 
@@ -43,22 +39,58 @@ export const getLessons = async (req, res) => {
 };
 
 export const getLessonById = async (req, res) => {
-  // Get all lessons created by the logged-in instructor
   try {
     const lesson = await Lesson.findById(req.params.id);
+    if (!lesson) {
+      return res.status(404).json({
+        success: false,
+        message: 'Lesson not found'
+      });
+    } 
     res.status(200).json({
       success: true,
-      count: lesson.length,
       data: lesson
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Server Error',
-      error: error.message
-    });
+  res.status(500).json({
+    success: false,
+    message: 'Server Error',
+    error: error
+    
+  });
   }
 };
+
+export const getLessonsOfLoggedInIntructor = async (req, res) => {
+  try {
+    const query = {
+      instructor: req.userId
+    };
+    
+    const lessons = await Lesson.find(query);
+          
+    if (!lessons || lessons.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No lessons found for this instructor'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      count: lessons.length,
+      data: lessons
+    })
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: ' Server Error',
+      error: error.message
+    });
+    console.log(error)
+
+  }
+}
 
 // @desc    Create a lesson
 // @route   POST /api/lessons
@@ -87,7 +119,7 @@ export const createLesson = async (req, res) => {
     const lesson = new Lesson({
       title,
       description,
-      instructor: req.user._id, // From auth middleware
+      instructor: req.userId, 
       thumbnail,
       category,
       content,
@@ -95,7 +127,7 @@ export const createLesson = async (req, res) => {
       duration: Math.max(0, Number(duration)), // Ensure positive number
       resources,
       quiz,
-      isPublished: false // Default unpublished
+      isPublished: true // Default unpublished
     });
 
     await lesson.save();
@@ -144,7 +176,9 @@ try {
   }
 
   // Check if user is the instructor of this lesson
-  if (lesson.instructor.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+  console.log(lesson.instructor.toString(), req.userId.toString());
+  
+  if (lesson.instructor.toString() !== req.userId.toString()) {
     return res.status(403).json({ 
       success: false,
       message: 'Not authorized to edit this lesson' 
@@ -186,18 +220,16 @@ export const enrollLesson = async (req, res) => {
     }
   
     // Check if user is already enrolled
-    const user = await User.findById(req.user._id);
+    const user = await User.findById(req.userId);
     const alreadyEnrolled = user.enrolledLessons.find(
       (l) => l.lessonId.toString() === lesson._id.toString()
     );
   
     if (alreadyEnrolled) {
-      if (!lesson) {
         return res.status(404).json({ 
           success: false,
           message: 'Already enrolled in this lesson' 
         }); 
-      }
     }
   
     // Add lesson to user's enrolled lessons
@@ -207,7 +239,7 @@ export const enrollLesson = async (req, res) => {
     });
   
     // Add user to lesson's enrolled students
-    lesson.enrolledStudents.push(req.user._id);
+    lesson.enrolledStudents.push(req.userId);
   
     await user.save();
     await lesson.save();
@@ -234,7 +266,7 @@ export const completeLesson = async (req, res) => {
       }); 
     }
     // Check if user is enrolled in the lesson
-    const user = await User.findById(req.user._id);
+    const user = await User.findById(req.userId);
     const enrolledLesson = user.enrolledLessons.find(
       (l) => l.lessonId.toString() === lesson._id.toString()
     );
@@ -250,7 +282,7 @@ export const completeLesson = async (req, res) => {
     enrolledLesson.completed = true;
     await user.save();
     res.status(200).json({ message: 'Lesson completed' });
-    
+
   } catch (error) {
     console.error('Error completing lesson:', error);
     res.status(500).json({ 
